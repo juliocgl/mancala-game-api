@@ -1,0 +1,7 @@
+custom:
+  littlePitsPerPlayer: 6
+  initialStonesPerPit: 6
+spring:
+  mvc:
+    path-match:
+      matching-strategy: ant_path_matcher
