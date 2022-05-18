@@ -30,7 +30,7 @@ public class GameRestController {
         gameService.startGame();
     }
 
-    @ApiOperation(value = "Selects the pit for the movement")
+    @ApiOperation(value = "Selects the pit for the movement. Default: 1-6 for pits from player 1, 7-12 for pits from player 2")
     @PutMapping("/selectPit/{pit}")
     public void selectPit(@PathVariable Integer pit) {
         try {
