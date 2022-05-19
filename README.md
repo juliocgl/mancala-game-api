@@ -1,6 +1,7 @@
 # Mancala game
 
-This project implements an API service to play [Mancala](https://en.wikipedia.org/wiki/Mancala), which is a board game played by 2 players.
+This project implements an API service to play [Mancala](https://en.wikipedia.org/wiki/Mancala), which is a board game
+played by 2 players.
 The objective is to capture more stones in the big pit than your opponent.
 
 ## Technologies used
@@ -39,10 +40,12 @@ In order to select the pit for the movement, take into account that the applicat
 So numbers from 1 to 6 (in red) belong to player 1. And numbers from 7 to 12 (in green) belong to player 2.
 
 The default number of pits per player is 6 as well as the default number of initial stones per pit.
-This is set in the `application.yaml` file, it is possible to change it, keeping in mind that the first half of the pits will correspond to player 1 pits and the second half to player 2 pits.
+This is set in the `application.yaml` file, it is possible to change it, keeping in mind that the first half of the pits
+will correspond to player 1 pits and the second half to player 2 pits.
 
 ## Improvements
 
-- Include a repository to store the game, allowing to save the status, multiplayer game...
-- Include authentication, to only allow known players to play the game
+- Include a database to store the game, allowing to save the status, multiplayer game... - Using @Entity and @Repository
+- Include user management and authentication/authorization, to only allow known players to play the game - Spring
+  Security
 - Include a front-end application to consume the API methods making it more user-friendly

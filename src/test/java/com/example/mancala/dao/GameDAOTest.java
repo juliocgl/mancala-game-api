@@ -1,7 +1,6 @@
 package com.example.mancala.dao;
 
 import com.example.mancala.configuration.GameConfig;
-import com.example.mancala.model.Board;
 import com.example.mancala.model.Pit;
 import com.example.mancala.model.Turn;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,9 +20,6 @@ class GameDAOTest {
 
     @Mock
     GameConfig gameConfig;
-
-    @Mock
-    Board board;
 
     @InjectMocks
     GameDAO gameDAO;

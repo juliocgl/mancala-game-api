@@ -15,7 +15,7 @@ public class GameDAO {
 
     private final GameConfig gameConfig;
 
-    Board board;
+    private final Board board;
 
     public GameDAO(GameConfig gameConfig) {
         this.gameConfig = gameConfig;
