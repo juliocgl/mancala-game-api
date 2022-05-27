@@ -1,7 +1,7 @@
 package com.example.mancala;
 
 import com.example.mancala.controller.GameRestController;
-import com.example.mancala.dao.GameDAO;
+import com.example.mancala.repository.GameRepository;
 import com.example.mancala.service.GameService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +19,12 @@ class MancalaRestAPIApplicationTests {
     GameService gameService;
 
     @Autowired
-    GameDAO gameDAO;
+    GameRepository gameRepository;
 
     @Test
     void contextLoads() {
         assertThat(gameRestController).isNotNull();
+        assertThat(gameService).isNotNull();
+        assertThat(gameRepository).isNotNull();
     }
 }

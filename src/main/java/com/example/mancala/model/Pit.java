@@ -1,28 +1,48 @@
 package com.example.mancala.model;
 
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
-public class Pit {
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import java.io.Serializable;
 
-    private Integer stones;
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+@Entity
+public class Pit implements Serializable {
 
-    public Pit() {
-        this.stones = 0;
-    }
+    @ApiModelProperty(notes = "Pit ID")
+    @Id
+    private String id;
 
-    public Pit(Integer stones) {
-        this.stones = stones;
-    }
+    @ApiModelProperty(notes = "Game ID")
+    @JsonIgnore
+    @ManyToOne
+    @JoinColumn(name = "game_id", nullable = false)
+    private Game game;
 
-    public Integer pickStones() {
-        Integer value = stones;
+    @ApiModelProperty(notes = "Player number", example = "[1, 2]")
+    private int player;
+
+    @ApiModelProperty(notes = "Pit position in the board", example = "1")
+    private int position;
+
+    @ApiModelProperty(notes = "Stones in the pit", example = "6")
+    private int stones;
+
+    public int pickStones() {
+        int value = stones;
         stones = 0;
         return value;
-    }
-
-    public void addStones(Integer stones) {
-        this.stones += stones;
     }
 
     /**

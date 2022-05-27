@@ -2,6 +2,16 @@ custom:
   littlePitsPerPlayer: 6
   initialStonesPerPit: 6
 spring:
+  datasource:
+    url: jdbc:h2:mem:mancala
+    username: sa
+    password:
+    driverClassName: org.h2.Driver
+    jpa:
+      spring.jpa.database-platform: org.hibernate.dialect.H2Dialect
+  h2:
+    console:
+      enabled: true
   mvc:
     path-match:
       matching-strategy: ant_path_matcher

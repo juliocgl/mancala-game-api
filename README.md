@@ -10,6 +10,7 @@ The objective is to capture more stones in the big pit than your opponent.
 - Spring Boot 2.6.7
 - Swagger 3.0.0
 - JUnit 5
+- H2 Database Engine
 
 ## Requirements
 
@@ -30,8 +31,7 @@ The project cover the back-end part of the Mangala game. It contains a REST API 
 
 - start the game
 - select pits to make the movements
-- check who is the next player to move
-- check the current status of the game
+- retrieve the current status of the game
 
 In order to select the pit for the movement, take into account that the application takes the following numbering:
 
@@ -45,7 +45,7 @@ will correspond to player 1 pits and the second half to player 2 pits.
 
 ## Improvements
 
-- Include a database to store the game, allowing to save the status, multiplayer game... - Using @Entity and @Repository
 - Include user management and authentication/authorization, to only allow known players to play the game - Spring
   Security
+- Include event sourcing, to allow keeping the track of all movements
 - Include a front-end application to consume the API methods making it more user-friendly

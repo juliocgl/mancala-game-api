@@ -1,13 +1,11 @@
 package com.example.mancala.service;
 
 import com.example.mancala.configuration.GameConfig;
-import com.example.mancala.dao.GameDAO;
-import com.example.mancala.exception.BadPitSelectionException;
-import com.example.mancala.exception.GameNotStartedException;
-import com.example.mancala.exception.InvalidMovementException;
-import com.example.mancala.exception.WrongPlayerTurnException;
+import com.example.mancala.exception.*;
+import com.example.mancala.model.Game;
 import com.example.mancala.model.Pit;
 import com.example.mancala.model.Turn;
+import com.example.mancala.repository.GameRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,12 +13,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-import static com.example.mancala.utils.TestConstants.EMPTY_STONES;
-import static com.example.mancala.utils.TestConstants.INITIAL_STONES;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static com.example.mancala.utils.TestConstants.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(SpringExtension.class)
@@ -30,261 +28,259 @@ public class GameServiceTest {
     GameConfig gameConfig;
 
     @Mock
-    GameDAO gameDAO;
+    GameRepository gameRepository;
 
     @InjectMocks
     GameService gameService;
 
     @BeforeEach
     public void init() {
-        when(gameConfig.getLittlePitsPerPlayer()).thenReturn(6);
-        when(gameConfig.getInitialStonesPerPit()).thenReturn(6);
+        when(gameConfig.getLittlePitsPerPlayer()).thenReturn(DEFAULT_PITS);
+        when(gameConfig.getInitialStonesPerPit()).thenReturn(INITIAL_STONES);
     }
 
     @Test
-    public void givenGameNotStarted_whenStartGame_expectInitializeBoard() {
-        gameService.startGame();
+    public void givenGameNotCreated_whenCreateGame_expectGameCreated() {
+        Game game = new Game();
+        game.setId(GAME_ID);
+        game.setTurn(Turn.PLAYER_ONE);
+        when(gameRepository.save(any())).thenReturn(game);
 
-        verify(gameDAO, times(1)).initializeBoard();
+        gameService.createGame();
+
+        verify(gameRepository, times(1)).save(any());
     }
 
     @Test
-    public void givenGameNotStarted_whenMove_expectException() {
-        when(gameDAO.getTurn()).thenReturn(null);
+    public void givenGameCreated_whenGet_expectReturnGame() {
+        Game game = new Game();
+        game.setId(GAME_ID);
+        game.setTurn(Turn.PLAYER_ONE);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        assertThrows(GameNotStartedException.class, () -> gameService.move(1));
+        Game result = gameService.getGame(GAME_ID);
+        assertEquals(game.getId(), result.getId());
+        assertEquals(game.getTurn(), result.getTurn());
     }
 
     @Test
-    public void givenGameStarted_whenInvalidMove_expectException() {
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
+    public void givenGameCreated_whenGetWrongGameId_expectNullValue() {
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.empty());
 
-        assertThrows(BadPitSelectionException.class, () -> gameService.move(50));
+        assertNull(gameService.getGame(GAME_ID));
     }
 
     @Test
-    public void givenTurnPlayerOne_whenInvalidTurn_expectException() {
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
+    public void givenGameCreated_whenMoveWrongGameId_expectGameNotFoundException() {
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.empty());
 
-        assertThrows(WrongPlayerTurnException.class, () -> gameService.move(8));
+        assertThrows(GameNotFoundException.class, () -> gameService.move(GAME_ID, POSITION_1));
     }
 
     @Test
-    public void givenTurnPlayerOne_whenInvalidMove_expectException() {
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
-        when(gameDAO.getLittlePit(Turn.PLAYER_ONE, 4)).thenReturn(new Pit());
+    public void givenGameOver_whenMove_expectGameOverException() {
+        Game game = new Game();
+        game.setTurn(Turn.GAME_OVER);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        assertThrows(InvalidMovementException.class, () -> gameService.move(4));
+        assertThrows(GameOverException.class, () -> gameService.move(GAME_ID, POSITION_1));
     }
 
     @Test
-    public void givenTurnPlayerOne_whenMove_expectStonesPicked() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(INITIAL_STONES);
-        when(littlePit.pickStones()).thenReturn(INITIAL_STONES);
-        when(littlePit.sow()).thenReturn(false);
+    public void givenGameCreated_whenMoveInvalidPit_expectBadPitSelectionException() {
+        Game game = new Game();
+        game.setTurn(Turn.PLAYER_ONE);
+        List<Pit> littlePits = new ArrayList<>();
+        littlePits.add(new Pit());
+        littlePits.add(new Pit());
+        game.setPits(littlePits);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
-        when(gameDAO.getLittlePit(any(), any())).thenReturn(littlePit);
-        when(gameDAO.getPlayerOneBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerOneLittlePits()).thenReturn(List.of(new Pit(7), new Pit(7), new Pit(7), new Pit(EMPTY_STONES), new Pit(INITIAL_STONES), new Pit(INITIAL_STONES)));
-
-        gameService.move(4);
-
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_ONE, 4);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 3);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 2);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 1);
-        verify(gameDAO.getPlayerOneBigPit(), times(1)).sow();
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_TWO, 6);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_TWO, 5);
-        verify(gameDAO, times(1)).setTurn(Turn.PLAYER_TWO);
+        assertThrows(BadPitSelectionException.class, () -> gameService.move(GAME_ID, -1));
+        assertThrows(BadPitSelectionException.class, () -> gameService.move(GAME_ID, 0));
+        assertThrows(BadPitSelectionException.class, () -> gameService.move(GAME_ID, 3));
     }
 
     @Test
-    public void givenTurnPlayerTwo_whenMove_expectStonesPicked() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(INITIAL_STONES);
-        when(littlePit.pickStones()).thenReturn(INITIAL_STONES);
-        when(littlePit.sow()).thenReturn(false);
+    public void givenTurnPlayerOne_whenInvalidTurn_expectWrongPlayerTurnException() {
+        Game game = new Game();
+        game.setTurn(Turn.PLAYER_ONE);
+        List<Pit> littlePits = new ArrayList<>();
+        littlePits.add(new Pit());
+        littlePits.add(new Pit());
+        game.setPits(littlePits);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_TWO);
-        when(gameDAO.getLittlePit(any(), any())).thenReturn(littlePit);
-        when(gameDAO.getPlayerTwoBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerTwoLittlePits()).thenReturn(List.of(new Pit(EMPTY_STONES), new Pit(INITIAL_STONES), new Pit(INITIAL_STONES), new Pit(INITIAL_STONES), new Pit(INITIAL_STONES), new Pit(INITIAL_STONES)));
-
-        gameService.move(7);
-
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_TWO, 1);
-        verify(gameDAO.getPlayerTwoBigPit(), times(1)).sow();
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 6);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 5);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 4);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 3);
-        verify(gameDAO, times(1)).getLittlePit(Turn.PLAYER_ONE, 2);
-        verify(gameDAO, times(1)).setTurn(Turn.PLAYER_ONE);
+        assertThrows(WrongPlayerTurnException.class, () -> gameService.move(GAME_ID, 2));
     }
 
     @Test
-    public void givenPlayerOneTurn_whenMoveEndsInEmptyPit_expectStealOppositeStones() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(1);
-        when(littlePit.pickStones()).thenReturn(1);
-        when(littlePit.sow()).thenReturn(false);
+    public void givenTurnPlayerOne_whenInvalidMove_expectInvalidMovementException() {
+        Game game = new Game();
+        game.setTurn(Turn.PLAYER_ONE);
+        List<Pit> littlePits = new ArrayList<>();
+        littlePits.add(new Pit());
+        littlePits.add(new Pit());
+        game.setPits(littlePits);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        Pit emptyPit = mock(Pit.class);
-        when(emptyPit.sow()).thenReturn(true);
-        when(emptyPit.getStones()).thenReturn(0);
-
-        Pit opponentPit = mock(Pit.class);
-        when(opponentPit.pickStones()).thenReturn(INITIAL_STONES);
-
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
-        when(gameDAO.getLittlePit(Turn.PLAYER_ONE, 2)).thenReturn(littlePit);
-        when(gameDAO.getLittlePit(Turn.PLAYER_ONE, 1)).thenReturn(emptyPit);
-        when(gameDAO.getLittlePit(Turn.PLAYER_TWO, 6)).thenReturn(opponentPit);
-        when(gameDAO.getPlayerOneBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerOneLittlePits()).thenReturn(List.of(new Pit(EMPTY_STONES), new Pit(INITIAL_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES)));
-
-        gameService.move(2);
-
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_ONE, 1);
-        verify(gameDAO.getPlayerOneBigPit(), times(1)).sow();
-        verify(gameDAO.getPlayerOneBigPit(), times(1)).addStones(INITIAL_STONES);
-        verify(gameDAO, times(1)).setTurn(Turn.PLAYER_TWO);
+        assertThrows(InvalidMovementException.class, () -> gameService.move(GAME_ID, POSITION_1));
     }
 
     @Test
-    public void givenPlayerTwoTurn_whenMoveEndsInEmptyPit_expectStealOppositeStones() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(1);
-        when(littlePit.pickStones()).thenReturn(1);
-        when(littlePit.sow()).thenReturn(false);
+    public void givenTurnPlayerOne_whenMove_expectStonesPicked() throws GameNotFoundException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException, GameOverException {
+        Game game = initializeGame(Turn.PLAYER_ONE);
 
-        Pit emptyPit = mock(Pit.class);
-        when(emptyPit.sow()).thenReturn(true);
-        when(emptyPit.getStones()).thenReturn(0);
+        Pit pit1 = initializePit(1, INITIAL_STONES, false);
+        Pit pit2 = initializePit(2, INITIAL_STONES, false);
+        Pit pit3 = initializePit(3, INITIAL_STONES, false);
+        Pit pit4 = initializePit(4, INITIAL_STONES, false);
+        List<Pit> littlePits = new ArrayList<>();
+        littlePits.add(pit1);
+        littlePits.add(pit2);
+        littlePits.add(pit3);
+        littlePits.add(pit4);
+        game.setPits(littlePits);
 
-        Pit opponentPit = mock(Pit.class);
-        when(opponentPit.pickStones()).thenReturn(INITIAL_STONES);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_TWO);
-        when(gameDAO.getLittlePit(Turn.PLAYER_TWO, 2)).thenReturn(littlePit);
-        when(gameDAO.getLittlePit(Turn.PLAYER_TWO, 1)).thenReturn(emptyPit);
-        when(gameDAO.getLittlePit(Turn.PLAYER_ONE, 6)).thenReturn(opponentPit);
-        when(gameDAO.getPlayerTwoBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerTwoLittlePits()).thenReturn(List.of(new Pit(EMPTY_STONES), new Pit(INITIAL_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES)));
+        gameService.move(GAME_ID, POSITION_1);
 
-        gameService.move(8);
+        verify(pit1, times(1)).pickStones();
+        verify(pit2, times(1)).sow();
+        verify(pit3, times(1)).sow();
+        verify(pit4, times(1)).sow();
 
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_TWO, 1);
-        verify(gameDAO.getPlayerTwoBigPit(), times(1)).sow();
-        verify(gameDAO.getPlayerTwoBigPit(), times(1)).addStones(INITIAL_STONES);
-        verify(gameDAO, times(1)).setTurn(Turn.PLAYER_ONE);
+        verify(gameRepository, times(1)).save(any());
     }
 
     @Test
-    public void givenPlayerOneTurn_whenMoveEndInBigPit_expectRepeatTurn() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(1);
-        when(littlePit.pickStones()).thenReturn(1);
-        when(littlePit.sow()).thenReturn(true);
+    public void givenTurnPlayerTwo_whenMove_expectStonesPicked() throws GameNotFoundException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException, GameOverException {
+        Game game = initializeGame(Turn.PLAYER_TWO);
 
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
-        when(gameDAO.getLittlePit(any(), any())).thenReturn(littlePit);
-        when(gameDAO.getPlayerOneBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerOneLittlePits()).thenReturn(List.of(new Pit(EMPTY_STONES), new Pit(INITIAL_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES)));
-        when(gameDAO.getPlayerTwoBigPit()).thenReturn(mock(Pit.class));
+        Pit pit1 = initializePit(1, INITIAL_STONES, false);
+        Pit pit2 = initializePit(2, INITIAL_STONES, false);
+        Pit pit3 = initializePit(3, INITIAL_STONES, false);
+        Pit pit4 = initializePit(4, INITIAL_STONES, false);
+        List<Pit> littlePits = new ArrayList<>();
+        littlePits.add(pit1);
+        littlePits.add(pit2);
+        littlePits.add(pit3);
+        littlePits.add(pit4);
+        game.setPits(littlePits);
 
-        gameService.move(1);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_ONE, 1);
-        verify(gameDAO.getPlayerOneBigPit(), times(1)).sow();
-        verify(gameDAO, times(0)).setTurn(any());
+        gameService.move(GAME_ID, POSITION_3);
+
+        verify(pit3, times(1)).pickStones();
+        verify(pit4, times(1)).sow();
+        verify(pit1, times(1)).sow();
+        verify(pit2, times(1)).sow();
+
+        verify(gameRepository, times(1)).save(any());
     }
 
     @Test
-    public void givenLastTurnPlayerOne_whenMove_expectGameOver() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(1);
-        when(littlePit.pickStones()).thenReturn(1);
-        when(littlePit.sow()).thenReturn(false);
+    public void givenPlayerOneTurn_whenMoveEndsInEmptyPit_expectStealOppositeStones() throws GameNotFoundException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException, GameOverException {
+        Game game = initializeGame(Turn.PLAYER_ONE);
 
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
-        when(gameDAO.getLittlePit(any(), any())).thenReturn(littlePit);
-        when(gameDAO.getPlayerOneBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerOneLittlePits()).thenReturn(List.of(new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES)));
-        when(gameDAO.getPlayerTwoBigPit()).thenReturn(mock(Pit.class));
+        Pit pit1 = initializePit(1, 1,false);
+        Pit pit2 = initializePit(2, EMPTY_STONES,true);
+        Pit pit3 = initializePit(3, INITIAL_STONES,false);
+        Pit pit4 = initializePit(4, INITIAL_STONES,false);
+        List<Pit> littlePits = new ArrayList<>();
+        littlePits.add(pit1);
+        littlePits.add(pit2);
+        littlePits.add(pit3);
+        littlePits.add(pit4);
+        game.setPits(littlePits);
 
-        gameService.move(1);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_ONE, 1);
-        verify(gameDAO.getPlayerOneBigPit(), times(1)).sow();
-        verify(gameDAO, times(1)).setTurn(Turn.GAME_OVER);
+        gameService.move(GAME_ID, POSITION_1);
+
+        verify(pit1, times(1)).pickStones();
+        verify(pit2, times(1)).sow();
+        verify(pit2, times(1)).pickStones();
+        verify(pit3, times(1)).pickStones();
+        verify(pit3, times(0)).sow();
+        verify(pit4, times(0)).sow();
+
+        verify(gameRepository, times(1)).save(any());
     }
 
-    @Test
-    public void givenLastTurnPlayerTwo_whenMove_expectGameOver() throws GameNotStartedException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException {
-        Pit littlePit = mock(Pit.class);
-        when(littlePit.getStones()).thenReturn(1);
-        when(littlePit.pickStones()).thenReturn(1);
-        when(littlePit.sow()).thenReturn(false);
+        @Test
+    public void givenPlayerTwoTurn_whenMoveEndsInEmptyPit_expectStealOppositeStones() throws GameNotFoundException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException, GameOverException {
+            Game game = initializeGame(Turn.PLAYER_TWO);
 
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_TWO);
-        when(gameDAO.getLittlePit(any(), any())).thenReturn(littlePit);
-        when(gameDAO.getPlayerTwoBigPit()).thenReturn(mock(Pit.class));
-        when(gameDAO.getPlayerTwoLittlePits()).thenReturn(List.of(new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES), new Pit(EMPTY_STONES)));
-        when(gameDAO.getPlayerOneBigPit()).thenReturn(mock(Pit.class));
+            Pit pit1 = initializePit(1, INITIAL_STONES,false);
+            Pit pit2 = initializePit(2, INITIAL_STONES,false);
+            Pit pit3 = initializePit(3, 1,false);
+            Pit pit4 = initializePit(4, EMPTY_STONES,true);
+            List<Pit> littlePits = new ArrayList<>();
+            littlePits.add(pit1);
+            littlePits.add(pit2);
+            littlePits.add(pit3);
+            littlePits.add(pit4);
+            game.setPits(littlePits);
 
-        gameService.move(7);
+            when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
 
-        verify(gameDAO, times(2)).getLittlePit(Turn.PLAYER_TWO, 1);
-        verify(gameDAO.getPlayerTwoBigPit(), times(1)).sow();
-        verify(gameDAO, times(1)).setTurn(Turn.GAME_OVER);
+            gameService.move(GAME_ID, POSITION_3);
+
+            verify(pit3, times(1)).pickStones();
+            verify(pit4, times(1)).sow();
+            verify(pit4, times(1)).pickStones();
+            verify(pit1, times(1)).pickStones();
+            verify(pit2, times(0)).sow();
+
+            verify(gameRepository, times(1)).save(any());
     }
 
-    @Test
-    public void givenInitialStatus_whenGetBoardStatus_expectBoardStatus() {
-        when(gameDAO.getStonesInPlayerOnePits()).thenReturn(List.of(
-                EMPTY_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES));
-        when(gameDAO.getStonesInPlayerTwoPits()).thenReturn(List.of(
-                EMPTY_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES, INITIAL_STONES));
+        @Test
+    public void givenPlayerOneTurn_whenMoveEndInBigPit_expectRepeatTurn() throws GameNotFoundException, WrongPlayerTurnException, InvalidMovementException, BadPitSelectionException, GameOverException {
+            Game game = initializeGame(Turn.PLAYER_ONE);
 
-        List<Integer> result = gameService.getBoardStatus();
-        assertEquals(EMPTY_STONES, result.get(0));
-        assertEquals(INITIAL_STONES, result.get(1));
-        assertEquals(INITIAL_STONES, result.get(2));
-        assertEquals(INITIAL_STONES, result.get(3));
-        assertEquals(INITIAL_STONES, result.get(4));
-        assertEquals(INITIAL_STONES, result.get(5));
-        assertEquals(INITIAL_STONES, result.get(6));
-        assertEquals(EMPTY_STONES, result.get(7));
-        assertEquals(INITIAL_STONES, result.get(8));
-        assertEquals(INITIAL_STONES, result.get(9));
-        assertEquals(INITIAL_STONES, result.get(10));
-        assertEquals(INITIAL_STONES, result.get(11));
-        assertEquals(INITIAL_STONES, result.get(12));
-        assertEquals(INITIAL_STONES, result.get(13));
+            Pit pit1 = initializePit(1, INITIAL_STONES,false);
+            Pit pit2 = initializePit(2, 1,false);
+            Pit pit3 = initializePit(3, INITIAL_STONES,false);
+            Pit pit4 = initializePit(4, INITIAL_STONES,false);
+            List<Pit> littlePits = new ArrayList<>();
+            littlePits.add(pit1);
+            littlePits.add(pit2);
+            littlePits.add(pit3);
+            littlePits.add(pit4);
+            game.setPits(littlePits);
+
+            when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
+
+            gameService.move(GAME_ID, 2);
+
+            verify(pit1, times(0)).sow();
+            verify(pit1, times(0)).pickStones();
+            verify(pit2, times(1)).pickStones();
+            verify(pit3, times(0)).sow();
+            verify(pit3, times(0)).pickStones();
+            verify(pit4, times(0)).sow();
+            verify(pit4, times(0)).pickStones();
+
+            verify(gameRepository, times(1)).save(any());
     }
 
-    @Test
-    public void givenPlayerOneTurn_whenGetTurn_thenReturnPlayerOne() {
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_ONE);
-
-        assertEquals(Turn.PLAYER_ONE.getLabel(), gameService.getTurn());
+    private Game initializeGame(Turn turn) {
+        Game game = new Game();
+        game.setId(GAME_ID);
+        game.setTurn(turn);
+        return game;
     }
 
-    @Test
-    public void givenPlayerTwoTurn_whenGetTurn_thenReturnPlayerTwo() {
-        when(gameDAO.getTurn()).thenReturn(Turn.PLAYER_TWO);
-
-        assertEquals(Turn.PLAYER_TWO.getLabel(), gameService.getTurn());
-    }
-
-    @Test
-    public void givenGameOver_whenGetTurn_thenReturnGameOver() {
-        when(gameDAO.getTurn()).thenReturn(Turn.GAME_OVER);
-
-        assertEquals(Turn.GAME_OVER.getLabel(), gameService.getTurn());
+    private Pit initializePit(int position, int stones, boolean empty) {
+        Pit pit = mock(Pit.class);
+        pit.setPosition(position);
+        when(pit.getStones()).thenReturn(stones);
+        when(pit.pickStones()).thenReturn(stones);
+        when(pit.sow()).thenReturn(empty);
+        return pit;
     }
 }
