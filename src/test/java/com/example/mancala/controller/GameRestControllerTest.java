@@ -9,9 +9,11 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,9 +26,12 @@ import static com.example.mancala.utils.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@AutoConfigureMockMvc
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(controllers = GameRestController.class)
 public class GameRestControllerTest {
@@ -38,8 +43,21 @@ public class GameRestControllerTest {
     private GameService gameService;
 
     @Test
+    void givenWrongUser_whenStartGame_expectNoExecution() throws Exception {
+        mockMvc.perform(post("/api/game")
+                        .with(httpBasic("wrong-user", "wrong-password"))
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        verify(gameService, times(0)).createGame();
+    }
+
+    @Test
+    @WithMockUser(username = "user", roles = "USER")
     void givenNothing_whenStartGame_expectGameStarted() throws Exception {
-        mockMvc.perform(post("/api/game"))
+        mockMvc.perform(post("/api/game")
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isOk());
 
         verify(gameService, times(1)).createGame();
@@ -62,7 +80,9 @@ public class GameRestControllerTest {
 
         when(gameService.getGame(GAME_ID)).thenReturn(game);
 
-        mockMvc.perform(get("/api/game/" + GAME_ID))
+        mockMvc.perform(get("/api/game/" + GAME_ID)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.id").value(GAME_ID))
@@ -78,7 +98,9 @@ public class GameRestControllerTest {
 
     @Test
     void givenInitialStatus_whenSelectPit_expectMovement() throws Exception {
-        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3))
+        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isOk());
 
         verify(gameService, times(1)).move(GAME_ID, POSITION_3);
@@ -88,7 +110,9 @@ public class GameRestControllerTest {
     void givenInitialStatus_whenGameNotFoundAndSelectPit_expectException() throws Exception {
         doThrow(new GameNotFoundException()).when(gameService).move(GAME_ID, POSITION_3);
 
-        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3))
+        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertTrue(result.getResolvedException() instanceof ResponseStatusException))
                 .andExpect(result -> assertEquals("Game not started", ((ResponseStatusException) Objects.requireNonNull(result.getResolvedException())).getReason()));
@@ -98,7 +122,9 @@ public class GameRestControllerTest {
     void givenInitialStatus_whenSelectInvalidPit_expectException() throws Exception {
         doThrow(new BadPitSelectionException()).when(gameService).move(GAME_ID, POSITION_3);
 
-        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3))
+        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertTrue(result.getResolvedException() instanceof ResponseStatusException))
                 .andExpect(result -> assertEquals("Bad pit selected", ((ResponseStatusException) Objects.requireNonNull(result.getResolvedException())).getReason()));
@@ -108,7 +134,9 @@ public class GameRestControllerTest {
     void givenInitialStatus_whenWrongTurnAndSelectPit_expectException() throws Exception {
         doThrow(new WrongPlayerTurnException()).when(gameService).move(GAME_ID, POSITION_3);
 
-        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3))
+        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertTrue(result.getResolvedException() instanceof ResponseStatusException))
                 .andExpect(result -> assertEquals("Wrong turn", ((ResponseStatusException) Objects.requireNonNull(result.getResolvedException())).getReason()));
@@ -118,7 +146,9 @@ public class GameRestControllerTest {
     void givenInitialStatus_whenInvalidMove_expectException() throws Exception {
         doThrow(new InvalidMovementException()).when(gameService).move(GAME_ID, POSITION_3);
 
-        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3))
+        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertTrue(result.getResolvedException() instanceof ResponseStatusException))
                 .andExpect(result -> assertEquals("Invalid movement, pit is empty", ((ResponseStatusException) Objects.requireNonNull(result.getResolvedException())).getReason()));
@@ -128,7 +158,9 @@ public class GameRestControllerTest {
     void givenGameIsOver_whenSelectPit_expectException() throws Exception {
         doThrow(new GameOverException()).when(gameService).move(GAME_ID, POSITION_3);
 
-        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3))
+        mockMvc.perform(put("/api/game/" + GAME_ID + "/selectPit/" + POSITION_3)
+                        .with(httpBasic("user", "password"))
+                        .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertTrue(result.getResolvedException() instanceof ResponseStatusException))
                 .andExpect(result -> assertEquals("Game is over", ((ResponseStatusException) Objects.requireNonNull(result.getResolvedException())).getReason()));

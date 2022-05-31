@@ -8,6 +8,7 @@ The objective is to capture more stones in the big pit than your opponent.
 
 - Java 11
 - Spring Boot 2.6.7
+- Spring Security 5
 - Swagger 3.0.0
 - JUnit 5
 - H2 Database Engine
@@ -45,7 +46,6 @@ will correspond to player 1 pits and the second half to player 2 pits.
 
 ## Improvements
 
-- Include user management and authentication/authorization, to only allow known players to play the game - Spring
-  Security
+- Include user management and improve authentication/authorization, right now it is using basic authentication
 - Include event sourcing, to allow keeping the track of all movements
 - Include a front-end application to consume the API methods making it more user-friendly
