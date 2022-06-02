@@ -29,7 +29,11 @@ public class GameRestController {
     @ApiOperation(value = "Retrieves the game according to the game ID provided", response = Game.class)
     @GetMapping("/{gameId}")
     public Game get(@PathVariable String gameId) {
-        return gameService.getGame(gameId);
+        try {
+            return gameService.getGame(gameId);
+        } catch (GameNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Game not started", e);
+        }
     }
 
     @ApiOperation(value = "Selects the pit for the movement. Default: 1-6 for pits from player 1, 7-12 for pits from player 2")

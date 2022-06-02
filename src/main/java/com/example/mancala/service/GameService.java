@@ -36,12 +36,19 @@ public class GameService {
         return game;
     }
 
-    public Game getGame(String gameId) {
-        return gameRepository.findById(gameId).orElse(null);
+    public Game getGame(String gameId) throws GameNotFoundException {
+        Optional<Game> game = gameRepository.findById(gameId);
+        if (game.isEmpty()) {
+            log.error("Game not found");
+            throw new GameNotFoundException();
+        }
+        return game.get();
     }
 
     public void move(String gameId, int pitIndex) throws GameNotFoundException, BadPitSelectionException, WrongPlayerTurnException, InvalidMovementException, GameOverException {
-        Game game = getGameAndValidateMovement(gameId, pitIndex);
+        Game game = getGame(gameId);
+
+        validateMovement(game, pitIndex);
 
         pickStones(game, pitIndex);
     }
@@ -62,38 +69,29 @@ public class GameService {
         return littlePits;
     }
 
-    private Game getGameAndValidateMovement(String gameId, int pitIndex) throws WrongPlayerTurnException, BadPitSelectionException, GameOverException, GameNotFoundException, InvalidMovementException {
-        Optional<Game> game = gameRepository.findById(gameId);
-
-        if (game.isEmpty()) {
-            log.error("Game not found");
-            throw new GameNotFoundException();
-        }
-
-        if (isGameOver(game.get())) {
-            int scorePlayerOne = game.get().getBigPitPlayerOne();
-            int scorePlayerTwo = game.get().getBigPitPlayerTwo();
+    private void validateMovement(Game game, int pitIndex) throws WrongPlayerTurnException, BadPitSelectionException, GameOverException, InvalidMovementException {
+        if (isGameOver(game)) {
+            int scorePlayerOne = game.getBigPitPlayerOne();
+            int scorePlayerTwo = game.getBigPitPlayerTwo();
             log.error("Game is over. {}!! ({}-{})", scorePlayerOne > scorePlayerTwo ? Turn.PLAYER_ONE.getLabel() + " wins" : scorePlayerOne < scorePlayerTwo ? Turn.PLAYER_TWO.getLabel() + " wins" : "It's a draw", scorePlayerOne, scorePlayerTwo);
             throw new GameOverException();
         }
 
-        if (!isValidPitSelection(game.get(), pitIndex)) {
-            log.error("Pit selected ({}) is out of bounds [1-{}]", pitIndex, getTotalLittlePits(game.get()));
+        if (!isValidPitSelection(game, pitIndex)) {
+            log.error("Pit selected ({}) is out of bounds [1-{}]", pitIndex, getTotalLittlePits(game));
             throw new BadPitSelectionException();
         }
 
-        Turn turnFromSelection = getTurnFromPit(game.get(), pitIndex);
-        if (!isValidTurn(game.get(), turnFromSelection)) {
+        Turn turnFromSelection = getTurnFromPit(game, pitIndex);
+        if (!isValidTurn(game, turnFromSelection)) {
             log.error("Player turn incorrect. The turn is for {}", GameUtils.getOppositeTurn(turnFromSelection).getLabel());
             throw new WrongPlayerTurnException();
         }
 
-        if (isPitEmpty(game.get(), pitIndex)) {
+        if (isPitEmpty(game, pitIndex)) {
             log.error("Pit selected ({}) is empty", pitIndex);
             throw new InvalidMovementException();
         }
-
-        return game.get();
     }
 
     private void pickStones(Game game, int pitIndex) {

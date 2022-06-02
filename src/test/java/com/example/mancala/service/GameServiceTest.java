@@ -52,7 +52,7 @@ public class GameServiceTest {
     }
 
     @Test
-    public void givenGameCreated_whenGet_expectReturnGame() {
+    public void givenGameCreated_whenGet_expectReturnGame() throws GameNotFoundException {
         Game game = new Game();
         game.setId(GAME_ID);
         game.setTurn(Turn.PLAYER_ONE);
@@ -67,7 +67,7 @@ public class GameServiceTest {
     public void givenGameCreated_whenGetWrongGameId_expectNullValue() {
         when(gameRepository.findById(GAME_ID)).thenReturn(Optional.empty());
 
-        assertNull(gameService.getGame(GAME_ID));
+        assertThrows(GameNotFoundException.class, () -> gameService.move(GAME_ID, POSITION_1));
     }
 
     @Test
